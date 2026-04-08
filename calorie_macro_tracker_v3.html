@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Intake Calculator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <div class="header">
+        <h1>Calorie tracker</h1>
+          <div class="date-nav">
+          <button onclick="changeDay(-1)">‹</button>
+          <span id="dateLabel"></span>
+          <button onclick="changeDay(1)" id="nextBtn">›</button>
+        </div>
+          <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+      </div>
+
+      <div class="summary-grid">
+        <div class="metric-card">
+          <div class="label">Calories</div>
+          <div class="value" id="totCal">0</div>
+          <div class="sub" id="remCal">— kcal left</div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill c-cal"
+              id="barCal"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Protein</div>
+          <div class="value" id="totPro">0g</div>
+          <div class="sub" id="remPro">— g left</div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill c-pro"
+              id="barPro"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Carbs</div>
+          <div class="value" id="totCarb">0g</div>
+          <div class="sub" id="remCarb">— g left</div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill c-carb"
+              id="barCarb"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Fat</div>
+          <div class="value" id="totFat">0g</div>
+          <div class="sub" id="remFat">— g left</div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill c-fat"
+              id="barFat"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Add food</div>
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('myfoods')">
+            My foods
+          </button>
+          <button class="tab" onclick="switchTab('new')">Add new food</button>
+        </div>
+
+        <div id="tab-myfoods">
+          <input
+            class="mf-search"
+            type="text"
+            id="mfSearch"
+            placeholder="Search your saved foods…"
+            oninput="renderMyFoods()"
+          />
+          <div class="foods-list" id="myFoodsList">
+            <div class="empty">
+              No saved foods yet. Add your first food using the "Add new food"
+              tab.
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-new" class="section-hide">
+          <div class="custom-form">
+            <div class="form-row full">
+              <label>Food name</label
+              ><input
+                type="text"
+                id="cName"
+                placeholder="e.g. Koshary, protein shake, rice + chicken…"
+              />
+            </div>
+            <div class="form-row">
+              <label>Calories (kcal)</label
+              ><input type="number" id="cCal" placeholder="400" min="0" />
+            </div>
+            <div class="form-row">
+              <label>Serving size (g or ml)</label
+              ><input type="number" id="cServing" placeholder="100" min="1" />
+            </div>
+            <div class="form-row">
+              <label>Protein (g)</label
+              ><input type="number" id="cPro" placeholder="15" min="0" />
+            </div>
+            <div class="form-row">
+              <label>Carbs (g)</label
+              ><input type="number" id="cCarb" placeholder="60" min="0" />
+            </div>
+            <div class="form-row">
+              <label>Fat (g)</label
+              ><input type="number" id="cFat" placeholder="10" min="0" />
+            </div>
+          </div>
+          <div class="custom-actions">
+            <button class="btn-primary" onclick="saveNewFood()">
+              Save to my foods
+            </button>
+            <button class="btn-secondary" onclick="logOnce()">
+              Log once (don't save)
+            </button>
+          </div>
+          <div class="hint">
+            Macros are per serving. You can adjust quantity when logging.
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title" id="logTitle">Today's log</div>
+        <div class="log-list" id="logList">
+          <div class="empty">No food logged yet</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Daily targets</div>
+        <div class="targets-grid">
+          <div class="target-row">
+            <label>Calories (kcal)</label
+            ><input type="number" id="tCal" placeholder="2500" />
+          </div>
+          <div class="target-row">
+            <label>Protein (g)</label
+            ><input type="number" id="tPro" placeholder="180" />
+          </div>
+          <div class="target-row">
+            <label>Carbs (g)</label
+            ><input type="number" id="tCarb" placeholder="250" />
+          </div>
+          <div class="target-row">
+            <label>Fat (g)</label
+            ><input type="number" id="tFat" placeholder="70" />
+          </div>
+        </div>
+        <button class="save-targets" onclick="saveTargets()">
+          Save targets
+        </button>
+        <div class="saved-toast" id="savedToast">✓ Targets saved</div>
+      </div>
+    </div>
+
+    <div class="qty-modal-overlay" id="qtyModal">
+      <div class="qty-modal">
+        <h3 id="qModalName"></h3>
+        <div class="sub" id="qModalSub"></div>
+        <label>Number of servings</label>
+        <input
+          type="number"
+          id="qtyInput"
+          value="1"
+          min="0.1"
+          step="0.1"
+          oninput="updateQtyPreview()"
+        />
+        <div class="macro-preview">
+          <div class="mp">
+            <div class="mpl">Calories</div>
+            <div class="mpv" id="qpCal">—</div>
+          </div>
+          <div class="mp">
+            <div class="mpl">Protein</div>
+            <div class="mpv" id="qpPro">—</div>
+          </div>
+          <div class="mp">
+            <div class="mpl">Carbs</div>
+            <div class="mpv" id="qpCarb">—</div>
+          </div>
+          <div class="mp">
+            <div class="mpl">Fat</div>
+            <div class="mpv" id="qpFat">—</div>
+          </div>
+        </div>
+        <div class="qty-actions">
+          <button class="btn-cancel" onclick="closeQtyModal()">Cancel</button>
+          <button class="btn-confirm" onclick="confirmLog()">Add to log</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+
+<script src="script.js"></script>
