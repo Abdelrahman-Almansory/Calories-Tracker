@@ -1,9 +1,60 @@
-let currentDate = new Date();
+let currentDate;
 let targets = { cal: 2500, pro: 180, carb: 250, fat: 70 };
 let queuedFood = null;
 
 function dateKey(d) {
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+function parseDateKey(key) {
+  const parts = (key || "").split("-");
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const dd = parseInt(parts[2], 10);
+  return new Date(y, m, dd);
+}
+
+function saveCurrentDate() {
+  try {
+    setLS("ct3_currentDate", dateKey(currentDate));
+  } catch (e) {}
+}
+
+function loadCurrentDate() {
+  const saved = getLS("ct3_currentDate", null);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (saved) {
+    const pd = parseDateKey(saved);
+    if (pd) {
+      pd.setHours(0, 0, 0, 0);
+      // don't allow future dates beyond today
+      if (pd.getTime() > today.getTime()) {
+        currentDate = new Date(today);
+      } else {
+        currentDate = pd;
+      }
+      return;
+    }
+  }
+  currentDate = new Date(today);
+}
+
+function startAutoRollover() {
+  setInterval(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cur = new Date(currentDate);
+    cur.setHours(0, 0, 0, 0);
+    if (today.getTime() > cur.getTime()) {
+      currentDate = new Date(today);
+      saveCurrentDate();
+      renderAll();
+    }
+  }, 60 * 1000);
 }
 function getLS(k, def) {
   try {
@@ -47,6 +98,7 @@ function changeDay(n) {
   d.setDate(d.getDate() + n);
   if (d > new Date()) return;
   currentDate = d;
+  saveCurrentDate();
   renderAll();
 }
 
@@ -80,6 +132,209 @@ function renderAll() {
   renderLog(log);
   renderSummary(log);
   renderMyFoods();
+  renderTrend();
+}
+
+// --- Charting ---
+function getDatesForRange(range, endDate) {
+  const days = range === "week" ? 7 : 30;
+  const res = [];
+  const d = new Date(endDate);
+  d.setHours(0, 0, 0, 0);
+  for (let i = days - 1; i >= 0; i--) {
+    const dd = new Date(d);
+    dd.setDate(d.getDate() - i);
+    res.push(dd);
+  }
+  return res;
+}
+
+function aggregateMetricForDates(dates, metric) {
+  return dates.map((d) => {
+    const log = getLog(dateKey(d));
+    const val = log.reduce((s, it) => s + (parseFloat(it[metric]) || 0), 0);
+    return { date: d, label: formatDate(d), value: val };
+  });
+}
+
+function metricColor(metric) {
+  return {
+    cal:
+      getComputedStyle(document.documentElement).getPropertyValue("--c-cal") ||
+      "#3266ad",
+    pro: "#1d9e75",
+    carb: "#ba7517",
+    fat: "#d4537e",
+  }[metric];
+}
+
+function onChartOptionsChange() {
+  renderTrend();
+}
+
+function renderTrend() {
+  const canvas = document.getElementById("trendChart");
+  if (!canvas) return;
+  const metric = document.getElementById("chartMetric").value || "cal";
+  const range = document.getElementById("chartRange").value || "week";
+  const dates = getDatesForRange(range, new Date());
+  const data = aggregateMetricForDates(dates, metric);
+
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  // clear
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  const padding = { l: 36, r: 12, t: 12, b: 28 };
+  const w = rect.width - padding.l - padding.r;
+  const h = rect.height - padding.t - padding.b;
+
+  // compute max
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const stepY = Math.ceil(max / 4);
+
+  // draw grid & y labels
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue(
+    "--color-text-secondary",
+  );
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i <= 4; i++) {
+    const y = padding.t + (h * i) / 4;
+    const val = Math.round(max - stepY * i);
+    ctx.fillText(val, padding.l - 8, y);
+    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue(
+      "--color-border-tertiary",
+    );
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.l, y);
+    ctx.lineTo(padding.l + w, y);
+    ctx.stroke();
+  }
+
+  // line path
+  const pts = data.map((d, i) => {
+    const x = padding.l + (w * i) / Math.max(1, data.length - 1);
+    const y = padding.t + h - h * (d.value / (stepY * 4)); // scale by stepY*4
+    return { x, y, v: d.value, lbl: d.label, date: d.date };
+  });
+
+  const color =
+    {
+      cal: "#3266ad",
+      pro: "#1d9e75",
+      carb: "#ba7517",
+      fat: "#d4537e",
+    }[metric] || "#3266ad";
+
+  // draw area fill
+  ctx.beginPath();
+  pts.forEach((p, i) =>
+    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
+  );
+  ctx.lineTo(padding.l + w, padding.t + h);
+  ctx.lineTo(padding.l, padding.t + h);
+  ctx.closePath();
+  ctx.fillStyle = hexToRgba(color, 0.08);
+  ctx.fill();
+
+  // draw line
+  ctx.beginPath();
+  pts.forEach((p, i) =>
+    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y),
+  );
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // draw points
+  pts.forEach((p) => {
+    ctx.beginPath();
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // x labels
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue(
+    "--color-text-secondary",
+  );
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const skip = data.length > 14 ? Math.ceil(data.length / 7) : 1;
+  pts.forEach((p, i) => {
+    if (i % skip === 0 || i === pts.length - 1) {
+      ctx.fillText(shortDateLabel(p.date), p.x, padding.t + h + 6);
+    }
+  });
+
+  // attach tooltip interactions
+  attachChartInteraction(canvas, pts, metric);
+}
+
+function shortDateLabel(d) {
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function hexToRgba(hex, a) {
+  const h = hex.replace("#", "");
+  const bigint = parseInt(h, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+let _lastChartPts = null;
+function attachChartInteraction(canvas, pts, metric) {
+  _lastChartPts = pts;
+  const tooltip = document.getElementById("chartTooltip");
+  function move(e) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    // find nearest
+    let nearest = null;
+    let minDist = Infinity;
+    pts.forEach((p) => {
+      const dx = Math.abs(p.x - x);
+      if (dx < minDist) {
+        minDist = dx;
+        nearest = p;
+      }
+    });
+    if (!nearest) return;
+    tooltip.style.display = "block";
+    tooltip.innerHTML = `<strong>${nearest.lbl}</strong><div style="margin-top:6px">${metricLabel(metric)}: ${Math.round(nearest.v)}${metric === "cal" ? " kcal" : "g"}</div>`;
+    const left = Math.min(
+      rect.width - 8,
+      Math.max(8, nearest.x + rect.left - rect.left - 40),
+    );
+    const top = nearest.y - 40;
+    tooltip.style.transform = `translate(${left}px, ${top}px)`;
+  }
+  function leave() {
+    tooltip.style.display = "none";
+  }
+  canvas.removeEventListener("mousemove", canvas._ctMove || (() => {}));
+  canvas.removeEventListener("mouseleave", canvas._ctLeave || (() => {}));
+  canvas._ctMove = move;
+  canvas._ctLeave = leave;
+  canvas.addEventListener("mousemove", move);
+  canvas.addEventListener("mouseleave", leave);
+}
+
+function metricLabel(m) {
+  return { cal: "Calories", pro: "Protein", carb: "Carbs", fat: "Fat" }[m] || m;
 }
 
 function renderSummary(log) {
@@ -336,10 +591,11 @@ function initTheme() {
   const saved = getLS("ct3_theme", "light");
   applyTheme(saved);
   const btn = document.getElementById("themeToggle");
-  if (btn) btn.addEventListener("click", () => {
-    const next = document.body.classList.contains("dark") ? "light" : "dark";
-    applyTheme(next);
-  });
+  if (btn)
+    btn.addEventListener("click", () => {
+      const next = document.body.classList.contains("dark") ? "light" : "dark";
+      applyTheme(next);
+    });
 }
 
 document.getElementById("qtyModal").addEventListener("click", function (e) {
@@ -348,4 +604,57 @@ document.getElementById("qtyModal").addEventListener("click", function (e) {
 
 initTheme();
 loadStorage();
+loadCurrentDate();
+// Seed sample data if there are no logs yet (safe: won't overwrite existing logs)
+function seedSampleDataIfEmpty() {
+  // check for any existing log keys
+  const any = Object.keys(localStorage).some((k) => k.startsWith("ct3_log_"));
+  if (any) {
+    console.log("Sample data: logs exist, skipping seeding.");
+    return;
+  }
+  seedSampleData();
+}
+
+function seedSampleData(days = 30) {
+  const today = new Date();
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const key = dateKey(d);
+    const entries = [];
+    // generate 1-5 random meals
+    const meals = 1 + Math.floor(Math.random() * 5);
+    for (let m = 0; m < meals; m++) {
+      // macros roughly
+      const pro = Math.round(Math.random() * 60 + 5);
+      const carb = Math.round(Math.random() * 120 + 10);
+      const fat = Math.round(Math.random() * 30 + 2);
+      const cal = Math.round(
+        pro * 4 + carb * 4 + fat * 9 + (Math.random() * 50 - 25),
+      );
+      entries.push({
+        name: `Sample ${m + 1}`,
+        servingLabel: null,
+        cal,
+        pro,
+        carb,
+        fat,
+      });
+    }
+    saveLog(key, entries);
+  }
+  console.log(`Seeded sample data for last ${days} days.`);
+}
+
+// helper: manual test runner (call from console if needed)
+function runSampleTest(force = false) {
+  if (force) seedSampleData();
+  renderAll();
+  console.log("Sample test: renderAll executed.");
+}
+
+seedSampleDataIfEmpty();
 renderAll();
+startAutoRollover();

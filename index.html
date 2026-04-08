@@ -10,12 +10,18 @@
     <div class="app">
       <div class="header">
         <h1>Calorie tracker</h1>
-          <div class="date-nav">
+        <div class="date-nav">
           <button onclick="changeDay(-1)">‹</button>
           <span id="dateLabel"></span>
           <button onclick="changeDay(1)" id="nextBtn">›</button>
         </div>
-          <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">🌙</button>
+        <button
+          id="themeToggle"
+          class="theme-toggle"
+          aria-label="Toggle dark mode"
+        >
+          🌙
+        </button>
       </div>
 
       <div class="summary-grid">
@@ -66,6 +72,36 @@
               style="width: 0%"
             ></div>
           </div>
+        </div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-title">Trends</div>
+        <div class="chart-controls">
+          <label>
+            Metric
+            <select id="chartMetric" onchange="onChartOptionsChange()">
+              <option value="cal">Calories</option>
+              <option value="pro">Protein</option>
+              <option value="carb">Carbs</option>
+              <option value="fat">Fat</option>
+            </select>
+          </label>
+          <label>
+            Timeline
+            <select id="chartRange" onchange="onChartOptionsChange()">
+              <option value="week">Last 7 days</option>
+              <option value="month">Last 30 days</option>
+            </select>
+          </label>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="trendChart" width="720" height="200"></canvas>
+          <div
+            id="chartTooltip"
+            class="chart-tooltip"
+            style="display: none"
+          ></div>
         </div>
       </div>
 
