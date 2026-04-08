@@ -65,8 +65,8 @@ function getLS(k, def) {
   }
 }
 function setLS(k, v) {
-  try {
-    localStorage.setItem(k, JSON.stringify(v));
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
   } catch (e) {}
 }
 function getLog(ds) {
@@ -78,18 +78,19 @@ function saveLog(ds, log) {
 function getMyFoods() {
   return getLS("ct3_myfoods", []);
 }
-function saveMyFoods(f) {
-  setLS("ct3_myfoods", f);
-}
-
-function formatDate(d) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dd = new Date(d);
-  dd.setHours(0, 0, 0, 0);
-  const diff = (dd - today) / 86400000;
-  if (diff === 0) return "Today";
-  if (diff === -1) return "Yesterday";
+    tooltip.style.display = "block";
+    tooltip.innerHTML = `<strong>${nearest.lbl}</strong><div style="margin-top:6px">${metricLabel(metric)}: ${Math.round(nearest.v)}${metric === "cal" ? " kcal" : "g"}</div>`;
+    // position within chart-wrap; measure after content set
+    const containerRect = canvas.parentElement.getBoundingClientRect();
+    const ttW = tooltip.offsetWidth || 120;
+    const ttH = tooltip.offsetHeight || 48;
+    let left = Math.round(nearest.x - ttW / 2);
+    left = Math.max(8, Math.min(containerRect.width - ttW - 8, left));
+    let top = Math.round(nearest.y - ttH - 10);
+    if (top < 4) top = nearest.y + 10;
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
+    tooltip.style.transform = "none";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
@@ -182,9 +183,14 @@ function renderTrend() {
 
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  // robust size handling (fallbacks for Firefox when rect can be zero)
+  const cssWidth = rect.width || canvas.clientWidth || parseInt(canvas.style.width) || 720;
+  const cssHeight = rect.height || canvas.clientHeight || parseInt(canvas.style.height) || 200;
+  canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
   const ctx = canvas.getContext("2d");
+  // reset transform then scale for DPR
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
 
   // clear
@@ -201,7 +207,7 @@ function renderTrend() {
   // draw grid & y labels
   ctx.font = "11px system-ui, sans-serif";
   ctx.fillStyle =
-    (getComputedStyle(document.body).getPropertyValue("--color-text-secondary") || "#6b7280").trim();
+    ((getComputedStyle(document.body).getPropertyValue("--color-text-secondary") || "#6b7280").trim());
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.strokeStyle = (getComputedStyle(document.body).getPropertyValue("--color-border-tertiary") || "#eaeef2").trim();
