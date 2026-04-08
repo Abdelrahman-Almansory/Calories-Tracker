@@ -194,35 +194,32 @@ function renderTrend() {
   const w = rect.width - padding.l - padding.r;
   const h = rect.height - padding.t - padding.b;
 
-  // compute max
+  // compute max and grid
   const max = Math.max(1, ...data.map((d) => d.value));
-  const stepY = Math.ceil(max / 4);
+  const step = max / 4;
 
   // draw grid & y labels
   ctx.font = "11px system-ui, sans-serif";
-  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue(
-    "--color-text-secondary",
-  );
+  ctx.fillStyle =
+    (getComputedStyle(document.body).getPropertyValue("--color-text-secondary") || "#6b7280").trim();
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
+  ctx.strokeStyle = (getComputedStyle(document.body).getPropertyValue("--color-border-tertiary") || "#eaeef2").trim();
+  ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = padding.t + (h * i) / 4;
-    const val = Math.round(max - stepY * i);
+    const val = Math.round(max - step * i);
     ctx.fillText(val, padding.l - 8, y);
-    ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue(
-      "--color-border-tertiary",
-    );
-    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(padding.l, y);
-    ctx.lineTo(padding.l + w, y);
+    ctx.moveTo(padding.l, y + 0.5);
+    ctx.lineTo(padding.l + w, y + 0.5);
     ctx.stroke();
   }
 
-  // line path
+  // line path points (scale relative to max)
   const pts = data.map((d, i) => {
     const x = padding.l + (w * i) / Math.max(1, data.length - 1);
-    const y = padding.t + h - h * (d.value / (stepY * 4)); // scale by stepY*4
+    const y = padding.t + h - (h * (d.value / max));
     return { x, y, v: d.value, lbl: d.label, date: d.date };
   });
 
@@ -301,6 +298,7 @@ function attachChartInteraction(canvas, pts, metric) {
   const tooltip = document.getElementById("chartTooltip");
   function move(e) {
     const rect = canvas.getBoundingClientRect();
+    const containerRect = canvas.parentElement.getBoundingClientRect();
     const x = e.clientX - rect.left;
     // find nearest
     let nearest = null;
@@ -315,12 +313,16 @@ function attachChartInteraction(canvas, pts, metric) {
     if (!nearest) return;
     tooltip.style.display = "block";
     tooltip.innerHTML = `<strong>${nearest.lbl}</strong><div style="margin-top:6px">${metricLabel(metric)}: ${Math.round(nearest.v)}${metric === "cal" ? " kcal" : "g"}</div>`;
-    const left = Math.min(
-      rect.width - 8,
-      Math.max(8, nearest.x + rect.left - rect.left - 40),
-    );
-    const top = nearest.y - 40;
-    tooltip.style.transform = `translate(${left}px, ${top}px)`;
+    // position within chart-wrap
+    const ttW = tooltip.offsetWidth || 120;
+    const ttH = tooltip.offsetHeight || 48;
+    let left = Math.round(nearest.x - ttW / 2);
+    left = Math.max(8, Math.min(containerRect.width - ttW - 8, left));
+    let top = Math.round(nearest.y - ttH - 10);
+    if (top < 4) top = nearest.y + 10;
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
+    tooltip.style.transform = "none";
   }
   function leave() {
     tooltip.style.display = "none";
@@ -656,5 +658,27 @@ function runSampleTest(force = false) {
 }
 
 seedSampleDataIfEmpty();
+// Remove seeded sample logs (entries created by `seedSampleData`) if present.
+function removeSeededSampleData() {
+  const keys = Object.keys(localStorage).filter((k) => k.startsWith("ct3_log_"));
+  let removed = 0;
+  keys.forEach((k) => {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || arr.length === 0) return;
+      const allSample = arr.every((it) => typeof it.name === "string" && it.name.startsWith("Sample "));
+      if (allSample) {
+        localStorage.removeItem(k);
+        removed++;
+      }
+    } catch (e) {}
+  });
+  if (removed) console.log(`Removed ${removed} seeded sample log(s).`);
+}
+
+// Execute removal now per user request
+removeSeededSampleData();
 renderAll();
 startAutoRollover();
