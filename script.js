@@ -183,8 +183,10 @@ function renderTrend() {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   // robust size handling (fallbacks for Firefox when rect can be zero)
-  const cssWidth = rect.width || canvas.clientWidth || parseInt(canvas.style.width) || 720;
-  const cssHeight = rect.height || canvas.clientHeight || parseInt(canvas.style.height) || 200;
+  const cssWidth =
+    rect.width || canvas.clientWidth || parseInt(canvas.style.width) || 720;
+  const cssHeight =
+    rect.height || canvas.clientHeight || parseInt(canvas.style.height) || 200;
   canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
   canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
   const ctx = canvas.getContext("2d");
@@ -205,11 +207,18 @@ function renderTrend() {
 
   // draw grid & y labels
   ctx.font = "11px system-ui, sans-serif";
-  ctx.fillStyle =
-    ((getComputedStyle(document.body).getPropertyValue("--color-text-secondary") || "#6b7280").trim());
+  ctx.fillStyle = (
+    getComputedStyle(document.body).getPropertyValue(
+      "--color-text-secondary",
+    ) || "#6b7280"
+  ).trim();
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  ctx.strokeStyle = (getComputedStyle(document.body).getPropertyValue("--color-border-tertiary") || "#eaeef2").trim();
+  ctx.strokeStyle = (
+    getComputedStyle(document.body).getPropertyValue(
+      "--color-border-tertiary",
+    ) || "#eaeef2"
+  ).trim();
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = padding.t + (h * i) / 4;
@@ -224,7 +233,7 @@ function renderTrend() {
   // line path points (scale relative to max)
   const pts = data.map((d, i) => {
     const x = padding.l + (w * i) / Math.max(1, data.length - 1);
-    const y = padding.t + h - (h * (d.value / max));
+    const y = padding.t + h - h * (d.value / max);
     return { x, y, v: d.value, lbl: d.label, date: d.date };
   });
 
@@ -665,7 +674,9 @@ function runSampleTest(force = false) {
 seedSampleDataIfEmpty();
 // Remove seeded sample logs (entries created by `seedSampleData`) if present.
 function removeSeededSampleData() {
-  const keys = Object.keys(localStorage).filter((k) => k.startsWith("ct3_log_"));
+  const keys = Object.keys(localStorage).filter((k) =>
+    k.startsWith("ct3_log_"),
+  );
   let removed = 0;
   keys.forEach((k) => {
     try {
@@ -673,7 +684,9 @@ function removeSeededSampleData() {
       if (!raw) return;
       const arr = JSON.parse(raw);
       if (!Array.isArray(arr) || arr.length === 0) return;
-      const allSample = arr.every((it) => typeof it.name === "string" && it.name.startsWith("Sample "));
+      const allSample = arr.every(
+        (it) => typeof it.name === "string" && it.name.startsWith("Sample "),
+      );
       if (allSample) {
         localStorage.removeItem(k);
         removed++;
