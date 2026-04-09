@@ -65,8 +65,8 @@ function getLS(k, def) {
   }
 }
 function setLS(k, v) {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
   } catch (e) {}
 }
 function getLog(ds) {
@@ -78,19 +78,18 @@ function saveLog(ds, log) {
 function getMyFoods() {
   return getLS("ct3_myfoods", []);
 }
-    tooltip.style.display = "block";
-    tooltip.innerHTML = `<strong>${nearest.lbl}</strong><div style="margin-top:6px">${metricLabel(metric)}: ${Math.round(nearest.v)}${metric === "cal" ? " kcal" : "g"}</div>`;
-    // position within chart-wrap; measure after content set
-    const containerRect = canvas.parentElement.getBoundingClientRect();
-    const ttW = tooltip.offsetWidth || 120;
-    const ttH = tooltip.offsetHeight || 48;
-    let left = Math.round(nearest.x - ttW / 2);
-    left = Math.max(8, Math.min(containerRect.width - ttW - 8, left));
-    let top = Math.round(nearest.y - ttH - 10);
-    if (top < 4) top = nearest.y + 10;
-    tooltip.style.left = left + "px";
-    tooltip.style.top = top + "px";
-    tooltip.style.transform = "none";
+function saveMyFoods(f) {
+  setLS("ct3_myfoods", f);
+}
+
+function formatDate(d) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dd = new Date(d);
+  dd.setHours(0, 0, 0, 0);
+  const diff = (dd - today) / 86400000;
+  if (diff === 0) return "Today";
+  if (diff === -1) return "Yesterday";
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
