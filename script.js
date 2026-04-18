@@ -8,6 +8,47 @@ function dateKey(d) {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
 }
+
+function renderWeeklySummary() {
+  const sums = { cal: 0, pro: 0, carb: 0, fat: 0 };
+  // last 7 days including currentDate
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() - i);
+    const dayLog = getLog(dateKey(d));
+    const dayTotals = dayLog.reduce(
+      (a, e) => {
+        a.cal += e.cal;
+        a.pro += e.pro;
+        a.carb += e.carb;
+        a.fat += e.fat;
+        return a;
+      },
+      { cal: 0, pro: 0, carb: 0, fat: 0 },
+    );
+    sums.cal += dayTotals.cal;
+    sums.pro += dayTotals.pro;
+    sums.carb += dayTotals.carb;
+    sums.fat += dayTotals.fat;
+  }
+
+  // average per day across 7 days
+  const avg = {
+    cal: Math.round(sums.cal / 7),
+    pro: Math.round(sums.pro / 7),
+    carb: Math.round(sums.carb / 7),
+    fat: Math.round(sums.fat / 7),
+  };
+
+  const elCal = document.getElementById("wsCal");
+  const elPro = document.getElementById("wsPro");
+  const elCarb = document.getElementById("wsCarb");
+  const elFat = document.getElementById("wsFat");
+  if (elCal) elCal.textContent = avg.cal;
+  if (elPro) elPro.textContent = avg.pro + "g";
+  if (elCarb) elCarb.textContent = avg.carb + "g";
+  if (elFat) elFat.textContent = avg.fat + "g";
+}
 function parseDateKey(key) {
   const parts = (key || "").split("-");
   if (parts.length !== 3) return null;
@@ -367,45 +408,45 @@ function renderSummary(log) {
   );
 
   function renderWeeklySummary() {
-  const sums = { cal: 0, pro: 0, carb: 0, fat: 0 };
-  // last 7 days including currentDate
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(currentDate);
-    d.setDate(d.getDate() - i);
-    const dayLog = getLog(dateKey(d));
-    const dayTotals = dayLog.reduce(
-      (a, e) => {
-        a.cal += e.cal;
-        a.pro += e.pro;
-        a.carb += e.carb;
-        a.fat += e.fat;
-        return a;
-      },
-      { cal: 0, pro: 0, carb: 0, fat: 0 },
-    );
-    sums.cal += dayTotals.cal;
-    sums.pro += dayTotals.pro;
-    sums.carb += dayTotals.carb;
-    sums.fat += dayTotals.fat;
+    const sums = { cal: 0, pro: 0, carb: 0, fat: 0 };
+    // last 7 days including currentDate
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(currentDate);
+      d.setDate(d.getDate() - i);
+      const dayLog = getLog(dateKey(d));
+      const dayTotals = dayLog.reduce(
+        (a, e) => {
+          a.cal += e.cal;
+          a.pro += e.pro;
+          a.carb += e.carb;
+          a.fat += e.fat;
+          return a;
+        },
+        { cal: 0, pro: 0, carb: 0, fat: 0 },
+      );
+      sums.cal += dayTotals.cal;
+      sums.pro += dayTotals.pro;
+      sums.carb += dayTotals.carb;
+      sums.fat += dayTotals.fat;
+    }
+
+    // average per day across 7 days
+    const avg = {
+      cal: Math.round(sums.cal / 7),
+      pro: Math.round(sums.pro / 7),
+      carb: Math.round(sums.carb / 7),
+      fat: Math.round(sums.fat / 7),
+    };
+
+    const elCal = document.getElementById("wsCal");
+    const elPro = document.getElementById("wsPro");
+    const elCarb = document.getElementById("wsCarb");
+    const elFat = document.getElementById("wsFat");
+    if (elCal) elCal.textContent = avg.cal;
+    if (elPro) elPro.textContent = avg.pro + "g";
+    if (elCarb) elCarb.textContent = avg.carb + "g";
+    if (elFat) elFat.textContent = avg.fat + "g";
   }
-
-  // average per day across 7 days
-  const avg = {
-    cal: Math.round(sums.cal / 7),
-    pro: Math.round(sums.pro / 7),
-    carb: Math.round(sums.carb / 7),
-    fat: Math.round(sums.fat / 7),
-  };
-
-  const elCal = document.getElementById("wsCal");
-  const elPro = document.getElementById("wsPro");
-  const elCarb = document.getElementById("wsCarb");
-  const elFat = document.getElementById("wsFat");
-  if (elCal) elCal.textContent = avg.cal;
-  if (elPro) elPro.textContent = avg.pro + "g";
-  if (elCarb) elCarb.textContent = avg.carb + "g";
-  if (elFat) elFat.textContent = avg.fat + "g";
-}
   document.getElementById("totCal").textContent = Math.round(t.cal);
   document.getElementById("totPro").textContent = Math.round(t.pro) + "g";
   document.getElementById("totCarb").textContent = Math.round(t.carb) + "g";
